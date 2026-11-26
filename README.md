@@ -38,16 +38,59 @@ The attacker:
 
 ## Results
 
-> **To do:** run the experiments (see below), then paste the tables from `results/summary.md` and the plots here, followed by 3–5 sentences answering RQ1–RQ4 in your own words.
-
-<!--
-![Robustness](results/robustness_distilbert.png)
-![Attack](results/attack_success.png)
+LIAR test set (1,267 statements), 3 seeds, mean ± std. Binary macro-F1 for random guessing is ≈ 0.50.
 
 ### Key findings
-1. ...
-2. ...
--->
+
+1. **The most accurate model is the least robust (RQ1, RQ3).** DistilBERT has the best clean macro-F1 (0.642) but falls to **0.525** with typos and **0.530** with homoglyphs on 50% of words, close to chance. The character n-gram model starts lower (0.616) but loses at most **0.012** under any random perturbation.
+2. **A few edits flip most predictions (RQ2).** By changing only **15–19% of the words**, the black-box attack flips **~70–73%** of correct predictions for every model, and adversarial accuracy drops to **~17–18%**.
+3. **Input normalization is a cheap, effective defense against obfuscation (RQ4).** It restores homoglyph, leetspeak and zero-width performance almost completely at no cost to clean accuracy. It cuts attack success from 0.70 to **0.44** (char n-grams) and from 0.73 to **0.54** (DistilBERT).
+4. **But the attacker adapts.** Against normalized models, **97–100%** of successful attacks rely only on typos, the one perturbation normalization cannot undo. Typos remain the open problem.
+5. **Random data augmentation backfires against a worst-case attacker (RQ4).** It improves DistilBERT's macro-F1 under 50% random typos (0.525 → 0.586) but lowers clean F1 and *raises* attack success (e.g. word TF-IDF 0.72 → **0.80**). Robustness to random noise does not transfer to targeted perturbations.
+6. **An implicit defense.** Zero-width characters have no effect on DistilBERT, likely because its tokenizer strips invisible formatting characters. Both TF-IDF models are affected.
+
+### Macro-F1 on clean and perturbed test sets (50% of words perturbed)
+
+| model | defense | clean F1 | typo | homoglyph | leet | zero-width |
+|---|---|---|---|---|---|---|
+| tfidf_word | none | 0.634 ± 0.000 | 0.605 ± 0.012 | 0.595 ± 0.010 | 0.608 ± 0.010 | 0.600 ± 0.014 |
+| tfidf_word | normalize | 0.635 ± 0.000 | 0.605 ± 0.012 | 0.635 ± 0.000 | 0.633 ± 0.002 | 0.635 ± 0.000 |
+| tfidf_word | augment | 0.617 ± 0.004 | 0.600 ± 0.008 | 0.598 ± 0.014 | 0.607 ± 0.011 | 0.599 ± 0.015 |
+| tfidf_word | normalize+augment | 0.620 ± 0.004 | 0.607 ± 0.003 | 0.620 ± 0.004 | 0.619 ± 0.005 | 0.620 ± 0.004 |
+| tfidf_char | none | 0.616 ± 0.000 | 0.609 ± 0.003 | 0.604 ± 0.008 | 0.607 ± 0.007 | 0.606 ± 0.005 |
+| tfidf_char | normalize | 0.620 ± 0.000 | 0.609 ± 0.001 | 0.620 ± 0.000 | 0.617 ± 0.000 | 0.620 ± 0.000 |
+| tfidf_char | augment | 0.610 ± 0.001 | 0.604 ± 0.001 | 0.598 ± 0.009 | 0.600 ± 0.003 | 0.601 ± 0.002 |
+| tfidf_char | normalize+augment | 0.609 ± 0.001 | 0.603 ± 0.005 | 0.609 ± 0.001 | 0.609 ± 0.000 | 0.609 ± 0.001 |
+| distilbert | none | 0.642 ± 0.005 | 0.525 ± 0.005 | 0.530 ± 0.002 | 0.585 ± 0.007 | 0.642 ± 0.005 |
+| distilbert | normalize | 0.639 ± 0.005 | 0.531 ± 0.021 | 0.639 ± 0.005 | 0.636 ± 0.009 | 0.639 ± 0.005 |
+| distilbert | augment | 0.617 ± 0.008 | 0.586 ± 0.010 | 0.591 ± 0.007 | 0.583 ± 0.007 | 0.617 ± 0.008 |
+| distilbert | normalize+augment | 0.606 ± 0.005 | 0.578 ± 0.002 | 0.606 ± 0.005 | 0.601 ± 0.003 | 0.606 ± 0.005 |
+
+![DistilBERT robustness](figures/robustness_distilbert.png)
+
+### Greedy black-box attack (budget: 30% of words, 300 test examples per seed)
+
+| model | defense | attack success rate ↓ | adversarial accuracy ↑ | words changed (successful) |
+|---|---|---|---|---|
+| tfidf_word | none | 0.720 ± 0.011 | 0.178 ± 0.007 | 0.168 |
+| tfidf_word | normalize | 0.680 ± 0.015 | 0.203 ± 0.009 | 0.166 |
+| tfidf_word | augment | 0.800 ± 0.015 | 0.124 ± 0.010 | 0.177 |
+| tfidf_word | normalize+augment | 0.660 ± 0.014 | 0.214 ± 0.008 | 0.165 |
+| tfidf_char | none | 0.697 ± 0.005 | 0.184 ± 0.002 | 0.187 |
+| tfidf_char | normalize | **0.442 ± 0.016** | **0.340 ± 0.005** | 0.175 |
+| tfidf_char | augment | 0.767 ± 0.014 | 0.138 ± 0.010 | 0.181 |
+| tfidf_char | normalize+augment | 0.486 ± 0.046 | 0.307 ± 0.029 | 0.176 |
+| distilbert | none | 0.728 ± 0.047 | 0.173 ± 0.029 | 0.155 |
+| distilbert | normalize | 0.540 ± 0.033 | 0.297 ± 0.022 | 0.153 |
+| distilbert | augment | 0.761 ± 0.025 | 0.148 ± 0.018 | 0.145 |
+| distilbert | normalize+augment | 0.615 ± 0.023 | 0.228 ± 0.008 | 0.142 |
+
+![Attack success](figures/attack_success.png)
+
+More plots: [word TF-IDF](figures/robustness_tfidf_word.png) · [char TF-IDF](figures/robustness_tfidf_char.png)
+
+**Example of a successful attack (DistilBERT, no defense):**
+> *"Marijuana is less toxic than alcohol."* → *"Mаrijuаna is leqss toxic than alcohol."* (two Cyrillic `а` + one typo). The probability of the correct label fell from 0.80 to 0.37.
 
 ## How to run
 
@@ -127,6 +170,7 @@ Labels may be `0/1` or strings such as `fake`/`real` or `misleading`/`credible`.
 
 ## Limitations and future work
 
+- **Next step suggested by the results:** adversarial training on attack-generated (worst-case) examples instead of random ones, and a typo-correction front end (e.g. Pruthi et al., 2019) to close the remaining typo gap.
 - Only character-level attacks; word-level (synonym substitution, paraphrasing with an LLM) attacks are a natural next step.
 - Normalization reverses obfuscation (homoglyphs, leetspeak, zero-width) but **not typos**, and an adaptive attacker who knows the defense could use characters outside the mapping.
 - LIAR statements are short political claims; results may differ for long articles or social-media posts.
